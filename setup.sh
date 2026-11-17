@@ -167,6 +167,31 @@ else
 fi
 
 flutter pub get
+
+# flutter_inappwebview_android 1.1.3 still references the deprecated
+# proguard-android.txt default file; current Android Gradle requires the
+# optimise variant. Patch the downloaded pub-cache copy for this build.
+python3 - <<'PY'
+import os
+from pathlib import Path
+
+pub_cache = Path(os.environ.get("PUB_CACHE", str(Path.home() / ".pub-cache")))
+for gradle_file in pub_cache.glob(
+    "hosted/pub.dev/flutter_inappwebview_android-*/android/build.gradle"
+):
+    source = gradle_file.read_text()
+    source = source.replace(
+        "getDefaultProguardFile('proguard-android.txt')",
+        "getDefaultProguardFile('proguard-android-optimize.txt')",
+    )
+    source = source.replace(
+        'getDefaultProguardFile("proguard-android.txt")',
+        'getDefaultProguardFile("proguard-android-optimize.txt")',
+    )
+    gradle_file.write_text(source)
+    print(f"Patched Android Gradle ProGuard config: {gradle_file}")
+PY
+
 dart run flutter_launcher_icons
 
 # Set the iOS app display name and user-facing permission descriptions.
