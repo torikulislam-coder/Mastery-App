@@ -1,10 +1,16 @@
 name: Build Mastery App
+
 on:
   workflow_dispatch:
   push:
     branches: [main]
+
+permissions:
+  contents: read
+
 jobs:
-  build:
+  android:
+    name: Android APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,12 +21,64 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - run: bash build.sh
+          cache: true
+      - name: Create square Mastery launcher icon
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pillow
+          python3 - <<'PY'
+          from PIL import Image
+          logo = Image.open("assets/logo.png").convert("RGB")
+          mark = logo.crop((260, 0, 560, 190))
+          mark.thumbnail((380, 260), Image.Resampling.LANCZOS)
+          icon = Image.new("RGB", (512, 512), "white")
+          icon.paste(mark, ((512-mark.width)//2, (512-mark.height)//2))
+          icon.save("assets/icon.png", format="PNG", optimize=True)
+          PY
+      - name: Generate Android project and icons
+        run: bash setup.sh
+      - name: Build release APK
+        run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: Mastery-APK
-          path: dist/Mastery.apk
+          name: Mastery-Android-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 90
+
+  ios:
+    name: iOS unsigned IPA
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create square Mastery launcher icon
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pillow
+          python3 - <<'PY'
+          from PIL import Image
+          logo = Image.open("assets/logo.png").convert("RGB")
+          mark = logo.crop((260, 0, 560, 190))
+          mark.thumbnail((380, 260), Image.Resampling.LANCZOS)
+          icon = Image.new("RGB", (512, 512), "white")
+          icon.paste(mark, ((512-mark.width)//2, (512-mark.height)//2))
+          icon.save("assets/icon.png", format="PNG", optimize=True)
+          PY
+      - name: Generate iOS project and icons
+        run: bash setup.sh
+      - name: Build iOS without signing
+        run: flutter build ios --release --no-codesign
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/ios/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/Runner.app
+          cd build/ios/ipa
+          /usr/bin/zip -qry Mastery-iOS-unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: Mastery-Web
-          path: dist/web
+          name: Mastery-iOS-Unsigned-IPA
+          path: build/ios/ipa/Mastery-iOS-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 90
