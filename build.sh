@@ -10,8 +10,7 @@ sed -i.bak 's#<title>.*</title>#<title>Mastery</title>#' web/index.html && rm we
 sed -i.bak 's#android:label="[^"]*"#android:label="Mastery"#' android/app/src/main/AndroidManifest.xml && rm android/app/src/main/AndroidManifest.xml.bak
 flutter pub get
 
-# Disable only Android Lint tasks due to a reproducible upstream Android Lint parser crash
-# in url_launcher_android (JavaDocParser.parseDataItem NoSuchMethodError).
+# Disable only Android Lint tasks due to a reproducible upstream Android Lint parser crash.
 if [ -f android/build.gradle.kts ]; then
   cat >> android/build.gradle.kts <<'GRADLE'
 subprojects {
@@ -37,7 +36,8 @@ else
   exit 1
 fi
 
-# Ensure AndroidX and Kotlin dependencies resolve from their official Maven repositories.
+# Keep all three repositories visible: Google's AndroidX artifacts, Maven Central,
+# and Flutter's own engine/embedding Maven repository.
 python3 - <<'PY'
 from pathlib import Path
 import re
@@ -57,22 +57,29 @@ for settings in (Path("android/settings.gradle.kts"), Path("android/settings.gra
     if not settings.exists():
         continue
     text = settings.read_text()
-    m = re.search(r"dependencyResolutionManagement\s*\{", text)
+    is_kts = settings.name.endswith(".kts")
+    flutter_repo = (
+        'maven { url = uri("https://storage.googleapis.com/download.flutter.io") }'
+        if is_kts else
+        'maven { url "https://storage.googleapis.com/download.flutter.io" }'
+    )
+    m = re.search(r"dependencyResolutionManagement\\s*\\{", text)
     if not m:
-        text += """
-dependencyResolutionManagement {
+        text += f"""
+dependencyResolutionManagement {{
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-    repositories {
+    repositories {{
         google()
         mavenCentral()
-    }
-}
+        {flutter_repo}
+    }}
+}}
 """
     else:
         block_open = text.find("{", m.start())
         block_close = closing_brace(text, block_open)
         block = text[block_open + 1:block_close]
-        r = re.search(r"repositories\s*\{", block)
+        r = re.search(r"repositories\\s*\\{", block)
         if r:
             repo_open = block_open + 1 + block.find("{", r.start())
             repo_close = closing_brace(text, repo_open)
@@ -82,17 +89,20 @@ dependencyResolutionManagement {
                 additions.append("        google()")
             if "mavenCentral()" not in repo_body:
                 additions.append("        mavenCentral()")
+            if "storage.googleapis.com/download.flutter.io" not in repo_body:
+                additions.append("        " + flutter_repo)
             if additions:
-                text = text[:repo_open + 1] + "\n" + "\n".join(additions) + text[repo_open + 1:]
+                text = text[:repo_open + 1] + "\\n" + "\\n".join(additions) + text[repo_open + 1:]
         else:
-            text = text[:block_close] + """
-    repositories {
+            text = text[:block_close] + f"""
+    repositories {{
         google()
         mavenCentral()
-    }
+        {flutter_repo}
+    }}
 """ + text[block_close:]
     settings.write_text(text)
-    print(f"Configured google() and mavenCentral() in {settings}")
+    print(f"Configured Android dependency repositories in {settings}")
     break
 else:
     raise SystemExit("Could not locate Android settings.gradle(.kts)")
