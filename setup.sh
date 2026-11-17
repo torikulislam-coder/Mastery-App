@@ -137,6 +137,7 @@ dependencyResolutionManagement {{
     break
 else:
     raise SystemExit("Android settings.gradle(.kts) was not generated")
+PY
 
 # The current Android Gradle Lint parser crashes inside url_launcher_android.
 # Skip only Lint tasks; the APK is still compiled and packaged normally.
