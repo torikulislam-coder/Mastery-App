@@ -24,8 +24,9 @@ jobs:
           cache: true
       - name: Create square Mastery launcher icon
         run: |
-          python3 -m pip install --quiet --disable-pip-version-check pillow
-          python3 - <<'PY'
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet pillow
+          .venv/bin/python - <<'PY'
           from PIL import Image
           logo = Image.open("assets/logo.png").convert("RGB")
           mark = logo.crop((260, 0, 560, 190))
@@ -56,8 +57,9 @@ jobs:
           cache: true
       - name: Create square Mastery launcher icon
         run: |
-          python3 -m pip install --quiet --disable-pip-version-check pillow
-          python3 - <<'PY'
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet pillow
+          .venv/bin/python - <<'PY'
           from PIL import Image
           logo = Image.open("assets/logo.png").convert("RGB")
           mark = logo.crop((260, 0, 560, 190))
