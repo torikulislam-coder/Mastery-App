@@ -37,6 +37,67 @@ else
   exit 1
 fi
 
+# Ensure AndroidX and Kotlin dependencies resolve from their official Maven repositories.
+python3 - <<'PY'
+from pathlib import Path
+import re
+
+def closing_brace(text, opening):
+    depth = 0
+    for i in range(opening, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return i
+    raise RuntimeError("Unbalanced Gradle settings braces")
+
+for settings in (Path("android/settings.gradle.kts"), Path("android/settings.gradle")):
+    if not settings.exists():
+        continue
+    text = settings.read_text()
+    m = re.search(r"dependencyResolutionManagement\\s*\\{", text)
+    if not m:
+        text += """
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+"""
+    else:
+        block_open = text.find("{", m.start())
+        block_close = closing_brace(text, block_open)
+        block = text[block_open + 1:block_close]
+        r = re.search(r"repositories\\s*\\{", block)
+        if r:
+            repo_open = block_open + 1 + block.find("{", r.start())
+            repo_close = closing_brace(text, repo_open)
+            repo_body = text[repo_open + 1:repo_close]
+            additions = []
+            if "google()" not in repo_body:
+                additions.append("        google()")
+            if "mavenCentral()" not in repo_body:
+                additions.append("        mavenCentral()")
+            if additions:
+                text = text[:repo_open + 1] + "\\n" + "\\n".join(additions) + text[repo_open + 1:]
+        else:
+            text = text[:block_close] + """
+    repositories {
+        google()
+        mavenCentral()
+    }
+""" + text[block_close:]
+    settings.write_text(text)
+    print(f"Configured google() and mavenCentral() in {settings}")
+    break
+else:
+    raise SystemExit("Could not locate Android settings.gradle(.kts)")
+PY
+
 flutter build apk --release
 flutter build web --release
 mkdir -p ../dist
