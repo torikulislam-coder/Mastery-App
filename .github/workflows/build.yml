@@ -1,0 +1,37 @@
+name: Build Mastery App
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip project
+        run: unzip -q Mastery_App_Project.zip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Build APK and Web
+        run: cd mastery_app_project && bash build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mastery-APK
+          path: mastery_app_project/dist/Mastery.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mastery-Web
+          path: mastery_app_project/dist/web
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Mastery App v1.0.${{ github.run_number }}
+          files: mastery_app_project/dist/Mastery.apk
