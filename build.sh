@@ -9,6 +9,16 @@ rm -rf test
 sed -i.bak 's#<title>.*</title>#<title>Mastery</title>#' web/index.html && rm web/index.html.bak
 sed -i.bak 's#android:label="[^"]*"#android:label="Mastery"#' android/app/src/main/AndroidManifest.xml && rm android/app/src/main/AndroidManifest.xml.bak
 flutter pub get
+# Disable Gradle lint analysis: the current Android Lint parser can crash in url_launcher_android.
+cat >> android/build.gradle <<'GRADLE'
+subprojects {
+    tasks.configureEach { task ->
+        if (task.name.startsWith('lint')) {
+            task.enabled = false
+        }
+    }
+}
+GRADLE
 flutter build apk --release
 flutter build web --release
 mkdir -p ../dist
