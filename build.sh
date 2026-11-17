@@ -57,7 +57,7 @@ for settings in (Path("android/settings.gradle.kts"), Path("android/settings.gra
     if not settings.exists():
         continue
     text = settings.read_text()
-    m = re.search(r"dependencyResolutionManagement\\s*\\{", text)
+    m = re.search(r"dependencyResolutionManagement\s*\\{", text)
     if not m:
         text += """
 dependencyResolutionManagement {
@@ -72,7 +72,7 @@ dependencyResolutionManagement {
         block_open = text.find("{", m.start())
         block_close = closing_brace(text, block_open)
         block = text[block_open + 1:block_close]
-        r = re.search(r"repositories\\s*\\{", block)
+        r = re.search(r"repositories\s*\\{", block)
         if r:
             repo_open = block_open + 1 + block.find("{", r.start())
             repo_close = closing_brace(text, repo_open)
@@ -83,7 +83,7 @@ dependencyResolutionManagement {
             if "mavenCentral()" not in repo_body:
                 additions.append("        mavenCentral()")
             if additions:
-                text = text[:repo_open + 1] + "\\n" + "\\n".join(additions) + text[repo_open + 1:]
+                text = text[:repo_open + 1] + "\n" + "\n".join(additions) + text[repo_open + 1:]
         else:
             text = text[:block_close] + """
     repositories {
